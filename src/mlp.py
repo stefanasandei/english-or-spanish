@@ -4,12 +4,12 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import catppuccin
 
-from data_utils import get_dataset, get_data_params
+from data_utils import get_dataset, get_data_params, encode_word
 
 # 1. hyperparameters
 seed = 42
 lr = 1
-epochs = 10000
+epochs = 20000
 decay_step = epochs / 4 * 3
 batch_size = 256
 
@@ -104,9 +104,22 @@ for epoch in range(epochs + 1):
 
 # 6. validation test
 valid_loss = get_loss(parameters, Xval, Yval)
-print(f"valid_loss={valid_loss:.3f}")  # best loss is 1.065
+print(f"valid_loss={valid_loss:.3f}")  # best loss is 0.969
 
-# 7. plot
+# 7. sample
+words = ["hola", "energy", "nicht", "ciao", "haben", "ich"]
+# preds: spanish, english, german, italian, german, german
+for word in words:
+    enc = encode_word(word)
+    logits = forward(parameters, enc)[0]
+
+    # softmax
+    counts = jnp.exp(logits)
+    prob = counts / counts.sum(0, keepdims=True)
+    label_index = jnp.argmax(prob, 0)
+    print(f"{word}: {data['labels'][label_index]}")
+
+# 8. plot loss
 lossi.pop()
 lossi = jnp.mean(jnp.reshape(jnp.array(lossi), (-1, 100)), 1)
 
@@ -114,4 +127,5 @@ plt.style.use(["ggplot", catppuccin.PALETTE.mocha.identifier])
 plt.ylabel("loss")
 plt.xlabel("epoch")
 plt.plot(lossi)
-plt.show()
+# plt.show()
+plt.savefig("test_mlp")
