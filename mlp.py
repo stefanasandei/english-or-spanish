@@ -9,8 +9,9 @@ from data_utils import get_dataset, get_data_params
 # 1. hyperparameters
 seed = 42
 lr = 1
-epochs = 5000
-decay_step = epochs/5*3
+epochs = 10000
+decay_step = epochs / 4 * 3
+batch_size = 256
 
 key = jax.random.key(seed)
 
@@ -80,9 +81,14 @@ def update(params: jax.Array, gradient: jax.Array) -> jax.Array:
 
 
 # 5. training loop
-for epoch in range(epochs+1):
+for epoch in range(epochs + 1):
+    # mini-batch
+    key, _ = jax.random.split(key)  # get a new key from jax
+    ix = jax.random.randint(key, (batch_size,), 0, Xtr.shape[0])
+    Xb, Yb = Xtr[ix], Ytr[ix]
+
     # forward pass
-    loss = get_loss(parameters, Xtr, Ytr)
+    loss = get_loss(parameters, Xb, Yb)
     lossi.append(loss)
 
     if epoch % 500 == 0:
@@ -90,15 +96,19 @@ for epoch in range(epochs+1):
 
     # learning rate decay
     if epoch == decay_step:
-        lr /= 2
+        lr /= 10
 
     # backward pass
-    gradient = get_grad(parameters, Xtr, Ytr)
+    gradient = get_grad(parameters, Xb, Yb)
     parameters = update(parameters, gradient)
 
 # 6. validation test
 valid_loss = get_loss(parameters, Xval, Yval)
-print(f"valid_loss={valid_loss:.3f}")  # best loss is 1.037
+print(f"valid_loss={valid_loss:.3f}")  # best loss is 1.065
+
+# 7. plot
+lossi.pop()
+lossi = jnp.mean(jnp.reshape(jnp.array(lossi), (-1, 100)), 1)
 
 plt.style.use(["ggplot", catppuccin.PALETTE.mocha.identifier])
 plt.ylabel("loss")
