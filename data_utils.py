@@ -61,7 +61,8 @@ def encode_word(word: str) -> np.array:
         if i == max_chars_in_word:
             break
         encoded.append(encode_char(char))
-    encoded.extend([encode_char(" ") for _ in range(max_chars_in_word - len(encoded))])
+    encoded.extend([encode_char(" ")
+                   for _ in range(max_chars_in_word - len(encoded))])
     return np.array(encoded)
 
 
@@ -75,7 +76,7 @@ def encode_sentence(sentence: str) -> list[np.array]:
 def encode_label(label: str) -> np.array:
     vec = np.zeros(len(used_languages))
     vec[lang_to_index[label]] = 1
-    return vec.shape
+    return lang_to_index[label]
 
 
 # 4. create inputs and labels
@@ -96,7 +97,7 @@ for index, row in df.iterrows():
     a = encode_sentence(row["Text"])
     for b in a:
         x.append(b)
-        y.extend(encode_label(row["Language"]))
+        y.append(encode_label(row["Language"]))
 
 # 1 batch is max_chars_in_word by vocab_size
 x, y = np.array(x), np.array(y)
@@ -110,6 +111,7 @@ def get_data_params() -> dict:
         "max_chars_in_word": max_chars_in_word,
         "max_words_in_sentence": max_words_in_sentence,
         "data_size": len(x),
+        "num_classes": len(used_languages)
     }
 
 
