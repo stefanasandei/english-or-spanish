@@ -56,7 +56,8 @@ class RNN(nn.Module):
 
 
 n_hidden = 128
-rnn = RNN(data["max_chars_in_word"] * data["vocab_size"], n_hidden, data["num_classes"])
+rnn = RNN(data["max_chars_in_word"] * data["vocab_size"],
+          n_hidden, data["num_classes"])
 
 # 4. training
 rnn.train()
@@ -96,11 +97,11 @@ for i in range(len(Xval)):
 
     loss += F.cross_entropy(logits, torch.tensor([Yb]))
 loss /= len(Xval)
-print(f"val_loss={loss:.2f}")  # best loss is 0.54
+print(f"valid_loss={loss:.2f}")  # best loss is 0.54
 
 # 6. plot loss
 lossi.pop()
-lossi = torch.tensor(lossi).view(-1, 1000).mean(1)
+lossi = torch.tensor(lossi).view(-1, 100).mean(1)
 plt.figure(figsize=(10, 6))
 plt.style.use(["ggplot", catppuccin.PALETTE.mocha.identifier])
 plt.ylabel("loss")

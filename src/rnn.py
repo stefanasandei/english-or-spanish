@@ -50,7 +50,8 @@ class RNN(eqx.Module):
     def __init__(self, n_input: int, n_hidden: int, n_output: int):
         self.n_input = n_input
 
-        self.Wi2h = jax.random.normal(key, (n_input, n_hidden)) * 0.05  # kaiming init
+        self.Wi2h = jax.random.normal(
+            key, (n_input, n_hidden)) * 0.05  # kaiming init
         self.Wh2h = jax.random.normal(key, (n_hidden, n_hidden)) * 0.01
         self.bh = jnp.zeros((n_hidden))
         self.Wh2o = jax.random.normal(key, (n_hidden, n_output)) * 0.01
@@ -117,3 +118,22 @@ for epoch in range(epochs + 1):
     # backward pass
     updates = jax.tree_util.tree_map(lambda g: -lr * g, gradient)
     model = eqx.apply_updates(model, updates)
+
+# 6. validation test
+valid_loss = 0.0
+for i in range(len(Xval)):
+    loss, _ = get_loss(model, Xval[i], Yval[i])
+    valid_loss += loss
+valid_loss /= len(Xval)
+print(f"valid_loss={valid_loss:.3f}")  # best loss is 0.611
+
+# 7. plot loss
+lossi.pop()
+lossi = jnp.mean(jnp.reshape(jnp.array(lossi), (-1, 100)), 1)
+
+plt.figure(figsize=(10, 6))
+plt.style.use(["ggplot", catppuccin.PALETTE.mocha.identifier])
+plt.ylabel("loss")
+plt.xlabel("epoch")
+plt.plot(lossi)
+plt.savefig("test_rnn")
