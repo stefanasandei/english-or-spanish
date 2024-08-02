@@ -96,7 +96,7 @@ for i in range(len(Xval)):
 
     loss += F.cross_entropy(logits, torch.tensor([Yb]))
 loss /= len(Xval)
-print(f"val_loss={loss:.2f}")
+print(f"val_loss={loss:.2f}")  # best loss is 0.54
 
 # 6. plot loss
 lossi.pop()
