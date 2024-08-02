@@ -9,7 +9,7 @@ from data_utils import get_seq_dataset, get_data_params, encode_word
 
 # 1. hyperparameters
 seed = 42
-lr = 1
+lr = 0.005
 epochs = 20000
 decay_step = epochs / 4 * 3
 
@@ -50,8 +50,7 @@ class RNN(eqx.Module):
     def __init__(self, n_input: int, n_hidden: int, n_output: int):
         self.n_input = n_input
 
-        self.Wi2h = jax.random.uniform(
-            key, (n_input, n_hidden)) * 0.05  # kaiming init
+        self.Wi2h = jax.random.uniform(key, (n_input, n_hidden)) * 0.05  # kaiming init
         self.Wh2h = jax.random.uniform(key, (n_hidden, n_hidden)) * 0.01
         self.bh = jnp.zeros((n_hidden))
         self.Wh2o = jax.random.uniform(key, (n_hidden, n_output)) * 0.01

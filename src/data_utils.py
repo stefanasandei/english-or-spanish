@@ -3,7 +3,10 @@ import numpy as np
 import re
 
 # 1. read the data
-df = pd.read_csv("data.csv")
+try:
+    df = pd.read_csv("data.csv")
+except:
+    df = pd.read_csv("../data.csv")
 
 # 2. clean the dataset
 used_languages = [
@@ -61,8 +64,7 @@ def encode_word(word: str) -> np.array:
         if i == max_chars_in_word:
             break
         encoded.append(encode_char(char))
-    encoded.extend([encode_char(" ")
-                   for _ in range(max_chars_in_word - len(encoded))])
+    encoded.extend([encode_char(" ") for _ in range(max_chars_in_word - len(encoded))])
     return np.array(encoded)
 
 
@@ -98,8 +100,9 @@ for index, row in df.iterrows():
     a = encode_sentence(row["Text"])
     label = encode_label(row["Language"])
 
-    x_seq.append(a)
-    y_seq.append(label)
+    if len(a) > 0:
+        x_seq.append(a)
+        y_seq.append(label)
 
     for b in a:
         x.append(b)
@@ -119,7 +122,8 @@ def get_data_params() -> dict:
         "max_chars_in_word": max_chars_in_word,
         "max_words_in_sentence": max_words_in_sentence,
         "data_size": len(x),
-        "num_classes": len(used_languages)
+        "data_size_seq": len(x_seq),
+        "num_classes": len(used_languages),
     }
 
 
