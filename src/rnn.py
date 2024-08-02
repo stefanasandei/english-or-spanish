@@ -5,7 +5,7 @@ import equinox as eqx
 import matplotlib.pyplot as plt
 import catppuccin
 
-from data_utils import get_seq_dataset, get_data_params, encode_word
+from data_utils import get_seq_dataset, get_data_params
 
 # 1. hyperparameters
 seed = 42
@@ -19,7 +19,7 @@ key = jax.random.key(seed)
 data = get_data_params()
 X, Y = get_seq_dataset(seed)
 
-n = int(0.8 * data["data_size"])
+n = int(0.8 * data["data_size_seq"])
 
 # X is a list of sentences, each sentence is (num_words, word, char); chars are one-hot vectors
 # Y is (batch); single int representing the label
@@ -50,10 +50,10 @@ class RNN(eqx.Module):
     def __init__(self, n_input: int, n_hidden: int, n_output: int):
         self.n_input = n_input
 
-        self.Wi2h = jax.random.uniform(key, (n_input, n_hidden)) * 0.05  # kaiming init
-        self.Wh2h = jax.random.uniform(key, (n_hidden, n_hidden)) * 0.01
+        self.Wi2h = jax.random.normal(key, (n_input, n_hidden)) * 0.05  # kaiming init
+        self.Wh2h = jax.random.normal(key, (n_hidden, n_hidden)) * 0.01
         self.bh = jnp.zeros((n_hidden))
-        self.Wh2o = jax.random.uniform(key, (n_hidden, n_output)) * 0.01
+        self.Wh2o = jax.random.normal(key, (n_hidden, n_output)) * 0.01
         self.bo = jnp.zeros((n_output))
 
     def __call__(self, X: jax.Array, hidden: jax.Array) -> tuple[jax.Array, jax.Array]:
@@ -81,14 +81,14 @@ def forward(model: eqx.Module, X: jax.Array) -> jax.Array:
     return logits
 
 
-@eqx.filter_jit
+@eqx.filter_value_and_grad
 def get_loss(model: eqx.Module, X: jax.Array, y: jax.Array):
     logits = forward(model, X)
 
-    # cross entropy loss
+    # # cross entropy loss
     counts = jnp.exp(logits)
     prob = counts / counts.sum(1, keepdims=True)
-    loss = -jnp.mean(jnp.log(prob[1, y]))
+    loss = -jnp.mean(jnp.log(prob[0, y]))
 
     return loss
 
@@ -104,7 +104,7 @@ for epoch in range(epochs + 1):
     Xb, Yb = Xtr[ix], Ytr[ix]
 
     # forward pass
-    loss = get_loss(model, Xb, Yb)
+    loss, gradient = get_loss(model, Xb, Yb)
     lossi.append(loss)
 
     if epoch % 500 == 0:
@@ -115,8 +115,5 @@ for epoch in range(epochs + 1):
         lr /= 10
 
     # backward pass
-    gradient = get_grad(model, Xb, Yb)
     updates = jax.tree_util.tree_map(lambda g: -lr * g, gradient)
     model = eqx.apply_updates(model, updates)
-
-# warning: this seems to be broken lol
