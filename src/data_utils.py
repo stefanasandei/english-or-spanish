@@ -66,14 +66,14 @@ def encode_word(word: str) -> np.array:
     return np.array(encoded)
 
 
-def encode_sentence(sentence: str) -> list[np.array]:
+def encode_sentence(sentence: str) -> np.array:
     # return a list with words (2d arrays) made out of one-hot vectors
     words = sentence.split()[:max_words_in_sentence]
-    encoded_words = [encode_word(word) for word in words]
+    encoded_words = np.array([encode_word(word) for word in words])
     return encoded_words
 
 
-def encode_label(label: str) -> np.array:
+def encode_label(label: str) -> int:
     vec = np.zeros(len(used_languages))
     vec[lang_to_index[label]] = 1
     return lang_to_index[label]
@@ -93,17 +93,25 @@ def transform_dataframe(
 
 
 x, y = [], []
+x_seq, y_seq = [], []  # for the rnn based models, each example is one sentence
 for index, row in df.iterrows():
     a = encode_sentence(row["Text"])
+    label = encode_label(row["Language"])
+
+    x_seq.append(a)
+    y_seq.append(label)
+
     for b in a:
         x.append(b)
-        y.append(encode_label(row["Language"]))
+        y.append(label)
 
 # 1 batch is max_chars_in_word by vocab_size
 x, y = np.array(x), np.array(y)
 
-
 # functions to be used in the training scripts
+y_seq = np.array(y_seq)
+
+
 def get_data_params() -> dict:
     return {
         "labels": df["Language"].unique(),
@@ -122,3 +130,22 @@ def get_dataset(seed=42) -> tuple[np.array, np.array]:
     np.random.shuffle(indices)
 
     return x[indices], y[indices]
+
+
+def get_seq_dataset(seed=42) -> tuple[list[np.array], np.array]:
+    np.random.seed(seed)
+
+    xy = []
+    for x_row, y_row in zip(x_seq, y_seq):
+        xy.append([x_row, y_row])
+
+    np.random.shuffle(xy)
+
+    _x_seq, _y_seq = [], []
+    for i in xy:
+        _x_seq.append(i[0])
+        _y_seq.append(i[1])
+
+    _y_seq = np.array(_y_seq)
+
+    return _x_seq, _y_seq
