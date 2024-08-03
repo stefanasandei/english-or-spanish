@@ -106,6 +106,15 @@ for epoch in range(epochs + 1):
 valid_loss = get_loss(parameters, Xval, Yval)
 print(f"valid_loss={valid_loss:.3f}")  # best loss is 0.969
 
+# accuracy
+logits = forward(parameters, Xval)
+counts = jnp.exp(logits)
+prob = counts / counts.sum(1, keepdims=True)
+label_index = jnp.argmax(prob, axis=1)
+correct_predictions = jnp.sum(label_index == Yval)
+accuracy = correct_predictions / Yval.shape[0] * 100
+print(f"accuracy={accuracy:.2f}%")  # best accuracy is 66.72%
+
 # 7. sample
 words = ["hola", "energy", "nicht", "ciao", "haben", "ich"]
 # preds: spanish, english, german, italian, german, german

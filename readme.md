@@ -6,10 +6,10 @@ Language prediction using various deep learning algorithms, implemented in JAX. 
 
 ## Models
 
-The following model architectures were implemented, with the respective validation loss values.
+The following model architectures were implemented, with the respective validation loss values and accuracies.
 
-- MLP: 0.96
-- RNN: 0.54
+- MLP: loss of 0.96 and 66.72% accuracy
+- RNN: loss of 0.61 and 80.17% accuracy
 - LSTM: ???
 
 ## Dataset

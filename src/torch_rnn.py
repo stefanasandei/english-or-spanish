@@ -87,7 +87,7 @@ for epoch in range(epochs + 1):
 
 # 5. validation dataset loss
 rnn.eval()
-loss = 0
+loss, accuracy = 0, 0
 for i in range(len(Xval)):
     Xb, Yb = Xval[i], Yval[i]
 
@@ -96,8 +96,16 @@ for i in range(len(Xval)):
         logits, hidden = rnn(Xb[i], hidden)
 
     loss += F.cross_entropy(logits, torch.tensor([Yb]))
+
+    counts = logits.exp()
+    prob = counts / counts.sum(1, keepdim=True)
+    label_index = torch.argmax(prob, 1)
+    accuracy += (label_index == Yb.item())
 loss /= len(Xval)
+accuracy = float(accuracy) / len(Xval) * 100
 print(f"valid_loss={loss:.2f}")  # best loss is 0.54
+print(f"accuracy={accuracy:.2f}%")  # best accuracy is 80.17%
+
 
 # 6. plot loss
 lossi.pop()
