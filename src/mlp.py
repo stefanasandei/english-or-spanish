@@ -132,9 +132,9 @@ for word in words:
 lossi.pop()
 lossi = jnp.mean(jnp.reshape(jnp.array(lossi), (-1, 100)), 1)
 
+plt.figure(figsize=(10, 6))
 plt.style.use(["ggplot", catppuccin.PALETTE.mocha.identifier])
 plt.ylabel("loss")
 plt.xlabel("epoch")
 plt.plot(lossi)
-# plt.show()
 plt.savefig("test_mlp")
