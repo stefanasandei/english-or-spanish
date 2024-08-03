@@ -82,7 +82,7 @@ def forward(model: eqx.Module, X: jax.Array) -> jax.Array:
     return logits
 
 
-@eqx.filter_value_and_grad
+@eqx.filter_jit
 def get_loss(model: eqx.Module, X: jax.Array, y: jax.Array):
     logits = forward(model, X)
 
@@ -105,7 +105,7 @@ for epoch in range(epochs + 1):
     Xb, Yb = Xtr[ix], Ytr[ix]
 
     # forward pass
-    loss, gradient = get_loss(model, Xb, Yb)
+    loss = get_loss(model, Xb, Yb)
     lossi.append(loss)
 
     if epoch % 500 == 0:
@@ -113,17 +113,17 @@ for epoch in range(epochs + 1):
 
     # learning rate decay
     if epoch == decay_step:
-        lr /= 10
+        lr /= 5
 
     # backward pass
+    gradient = get_grad(model, Xb, Yb)
     updates = jax.tree_util.tree_map(lambda g: -lr * g, gradient)
     model = eqx.apply_updates(model, updates)
 
 # 6. validation test
 valid_loss = 0.0
 for i in range(len(Xval)):
-    loss, _ = get_loss(model, Xval[i], Yval[i])
-    valid_loss += loss
+    valid_loss += get_loss(model, Xval[i], Yval[i])
 valid_loss /= len(Xval)
 print(f"valid_loss={valid_loss:.3f}")  # best loss is 0.611
 
