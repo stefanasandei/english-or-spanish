@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
-import equinox as eqx
+from flax import linen as nn
+import optax
 
 import matplotlib.pyplot as plt
 import catppuccin
@@ -37,25 +38,43 @@ n_input = data["vocab_size"] * data["max_chars_in_word"]  # 28 * 10
 n_hidden = 128
 n_output = data["num_classes"]  # 7
 
-# TODO: lstm \w flax, optix
 
-model = None
+class LSTM(nn.Module):
+    n_input: int
+    n_hidden: int
+    n_output: int
+
+    def setup(self):
+        self.lstm_cell = nn.OptimizedLSTMCell(features=n_hidden)
+        self.out = nn.Dense(features=n_output)
+
+    def __call__(self, X: list[jax.Array]) -> jax.Array:
+        X = [x.reshape(-1, self.n_input) for x in X]
+        ckey, vkey = jax.random.split(key)
+
+        carry = self.lstm_cell.initialize_carry(ckey, X[0].shape)  # init hidden state
+        variables = self.lstm_cell.init(
+            vkey, carry, X[0]
+        )  # init internal lstm module variables
+
+        for i in range(len(X) - 1):
+            carry, logits = self.lstm_cell.apply(variables, carry, X[i + 1])
+
+        return logits
+
+
+model = LSTM(n_input, n_hidden, n_output)
+params = model.init(
+    key, jnp.zeros(1, n_input)
+)  # params cannot be part of the Module since they must be mutable
+
+# TODO
+
+logits = model.apply(params, Xtr[0])
+print(logits)
 
 # 4. forward and backward passes
 
-
-@eqx.filter_jit
-def forward(model: eqx.Module, X: jax.Array) -> jax.Array:
-    pass
-
-
-@eqx.filter_jit
-def get_loss(model: eqx.Module, X: jax.Array, y: jax.Array):
-    pass
-
-
-# differentiate with respect to the first argument (model params)
-get_grad = eqx.filter_grad(get_loss)
 
 # 5. training loop
 for epoch in range(epochs + 1):
@@ -65,7 +84,7 @@ for epoch in range(epochs + 1):
     Xb, Yb = Xtr[ix], Ytr[ix]
 
     # forward pass
-    loss = get_loss(model, Xb, Yb)
+    loss = 0
     lossi.append(loss)
 
     if epoch % 500 == 0:
@@ -76,14 +95,14 @@ for epoch in range(epochs + 1):
         lr /= 5
 
     # backward pass
-    gradient = get_grad(model, Xb, Yb)
+    gradient = 0
     updates = jax.tree_util.tree_map(lambda g: -lr * g, gradient)
     # model = eqx.apply_updates(model, updates)
 
 # 6. validation test
 valid_loss = 0.0
 for i in range(len(Xval)):
-    valid_loss += get_loss(model, Xval[i], Yval[i])
+    valid_loss += 0
 valid_loss /= len(Xval)
 print(f"valid_loss={valid_loss:.3f}")  # best loss is 0.611
 

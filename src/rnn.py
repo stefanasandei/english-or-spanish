@@ -50,8 +50,7 @@ class RNN(eqx.Module):
     def __init__(self, n_input: int, n_hidden: int, n_output: int):
         self.n_input = n_input
 
-        self.Wi2h = jax.random.normal(
-            key, (n_input, n_hidden)) * 0.05  # kaiming init
+        self.Wi2h = jax.random.normal(key, (n_input, n_hidden)) * 0.05  # kaiming init
         self.Wh2h = jax.random.normal(key, (n_hidden, n_hidden)) * 0.01
         self.bh = jnp.zeros((n_hidden))
         self.Wh2o = jax.random.normal(key, (n_hidden, n_output)) * 0.01
@@ -82,7 +81,7 @@ def forward(model: eqx.Module, X: jax.Array) -> jax.Array:
     return logits
 
 
-@eqx.filter_jit
+@eqx.filter_value_and_grad
 def get_loss(model: eqx.Module, X: jax.Array, y: jax.Array):
     logits = forward(model, X)
 
@@ -105,7 +104,7 @@ for epoch in range(epochs + 1):
     Xb, Yb = Xtr[ix], Ytr[ix]
 
     # forward pass
-    loss = get_loss(model, Xb, Yb)
+    loss, gradient = get_loss(model, Xb, Yb)
     lossi.append(loss)
 
     if epoch % 500 == 0:
@@ -113,27 +112,8 @@ for epoch in range(epochs + 1):
 
     # learning rate decay
     if epoch == decay_step:
-        lr /= 5
+        lr /= 10
 
     # backward pass
-    gradient = get_grad(model, Xb, Yb)
     updates = jax.tree_util.tree_map(lambda g: -lr * g, gradient)
     model = eqx.apply_updates(model, updates)
-
-# 6. validation test
-valid_loss = 0.0
-for i in range(len(Xval)):
-    valid_loss += get_loss(model, Xval[i], Yval[i])
-valid_loss /= len(Xval)
-print(f"valid_loss={valid_loss:.3f}")  # best loss is 0.611
-
-# 7. plot loss
-lossi.pop()
-lossi = jnp.mean(jnp.reshape(jnp.array(lossi), (-1, 100)), 1)
-
-plt.figure(figsize=(10, 6))
-plt.style.use(["ggplot", catppuccin.PALETTE.mocha.identifier])
-plt.ylabel("loss")
-plt.xlabel("epoch")
-plt.plot(lossi)
-plt.savefig("test_rnn")
