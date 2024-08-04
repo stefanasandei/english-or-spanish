@@ -1,4 +1,4 @@
-# English or spanish?
+# English or Spanish?
 
 Language prediction using various deep learning algorithms, implemented in JAX. I built three different word-level models, each with the task of detecting the language of a given sentence.
 

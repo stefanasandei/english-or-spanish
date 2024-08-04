@@ -12,9 +12,9 @@ from data_utils import get_seq_dataset, get_data_params
 # 1. hyperparameters
 seed = 42
 lr = 0.005
-epochs = 20000
-decay_step = epochs / 4 * 3
-batch_size = 32
+epochs = 1000
+decay_step = epochs // 2
+batch_size = 64
 
 torch.random.manual_seed(seed)
 
@@ -64,7 +64,7 @@ lstm = LSTM(
 
 # 4. training
 
-optimizer = optim.Adam(lstm.parameters(), lr=lr)
+optimizer = optim.AdamW(lstm.parameters(), lr=lr)
 
 lstm.train()
 for epoch in range(epochs + 1):
@@ -106,7 +106,7 @@ print(f"accuracy={accuracy:.2f}%")  # best accuracy is 95.26%
 
 # 6. plot loss
 lossi.pop()
-lossi = torch.tensor(lossi).view(-1, 100).mean(1)
+lossi = torch.tensor(lossi).view(-1, 2).mean(1)
 plt.figure(figsize=(10, 6))
 plt.style.use(["ggplot", catppuccin.PALETTE.mocha.identifier])
 plt.ylabel("loss")
