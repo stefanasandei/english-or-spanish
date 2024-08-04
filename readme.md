@@ -10,7 +10,7 @@ The following model architectures were implemented, with the respective validati
 
 - MLP: loss of 0.96 and 66.72% accuracy
 - RNN: loss of 0.61 and 80.17% accuracy
-- LSTM: ???
+- LSTM: loss of 0.27 and 95.27% accuracy
 
 ## Dataset
 
