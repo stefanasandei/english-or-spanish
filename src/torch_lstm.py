@@ -22,7 +22,8 @@ torch.random.manual_seed(seed)
 data = get_data_params()
 X, Y = get_seq_dataset(seed)
 
-X = pad_sequence([torch.tensor(x, dtype=torch.float32) for x in X], batch_first=True)
+X = pad_sequence([torch.tensor(x, dtype=torch.float32)
+                 for x in X], batch_first=True)
 Y = torch.tensor(Y)
 
 n = int(0.8 * data["data_size_seq"])
@@ -59,7 +60,8 @@ class LSTM(nn.Module):
 
 n_hidden = 128
 lstm = LSTM(
-    data["max_chars_in_word"] * data["vocab_size"], n_hidden, data["num_classes"]
+    data["max_chars_in_word"] *
+    data["vocab_size"], n_hidden, data["num_classes"]
 )
 
 # 4. training

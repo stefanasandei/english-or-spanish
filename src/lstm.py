@@ -9,37 +9,39 @@ import catppuccin
 
 from data_utils import get_seq_dataset, get_data_params
 
-# todo: not working, needs to match the torch lstm file
 # 1. hyperparameters
 seed = 42
 lr = 0.005
-epochs = 1000
-decay_step = epochs // 2
+epochs = 2000
 batch_size = 64
 
-key = jax.random.PRNGKey(seed)
+key = jax.random.key(seed)
 
 # 2. data prep
 data = get_data_params()
 X, Y = get_seq_dataset(seed)
 
-max_seq_length = max(len(seq) for seq in X)
-max_feature_length = max(len(seq[0]) for seq in X)
 
-padded_X = []
-for seq in X:
-    padded_seq = []
-    for sub_seq in seq:
-        padded_sub_seq = jnp.pad(
-            sub_seq, (0, max_feature_length - len(sub_seq)), mode="constant"
-        )
-        padded_seq.append(padded_sub_seq)
-    padded_seq = jnp.pad(
-        jnp.array(padded_seq), ((0, max_seq_length - len(seq)), (0, 0)), mode="constant"
-    )
-    padded_X.append(padded_seq)
+def transform_X(X):
+    """from list of sentences to (batch, sentence, word, char)"""
+    # Determine the batch size
+    batch_size = len(X)
 
-X = jnp.array(padded_X)
+    # Find the maximum length along the first dimension
+    max_len = max(array.shape[0] for array in X)
+
+    # Initialize the new array with zeros
+    result = jnp.zeros((batch_size, max_len, 10, 28))
+
+    # Copy the data from X into the result array
+    for i, array in enumerate(X):
+        length = array.shape[0]
+        result = result.at[i, :length, :, :].set(array)
+
+    return result
+
+
+X = jnp.array(transform_X(X))
 n = int(0.8 * data["data_size_seq"])
 Xtr, Ytr = X[:n], Y[:n]
 Xval, Yval = X[n:], Y[n:]
@@ -48,105 +50,110 @@ Xval, Yval = X[n:], Y[n:]
 lossi = []
 
 # 3. network params
-n_input = data["vocab_size"] * data["max_chars_in_word"]  # 28 * 10
-n_hidden = 128
-n_output = data["num_classes"]  # 7
 
 
-class LSTMModel(nn.Module):
-    n_input: int
-    n_hidden: int
-    n_output: int
+class LSTM(nn.Module):
+    sentence_size: int
+    input_size: int
+    hidden_size: int
+    output_size: int
 
     def setup(self):
-        self.lstm = nn.LSTMCell(features=self.n_hidden)
-        self.dense = nn.Dense(features=self.n_output)
+        self.lstm = nn.OptimizedLSTMCell(features=self.hidden_size)
+        self.h2o = nn.Dense(self.output_size)
 
     def __call__(self, x):
-        batch_size, seq_length, _ = x.shape
-        hidden = self.lstm.initialize_carry(
-            jax.random.PRNGKey(seed), (batch_size,), self.n_hidden
-        )
+        x = x.reshape(-1, self.sentence_size, self.input_size)
+        batch_size, seq_length = x.shape[0], x.shape[1]
+        carry = self.lstm.initialize_carry(
+            key, (batch_size,))
 
-        def lstm_step(carry, x):
-            carry, y = self.lstm(carry, x)
-            return carry, y
+        outputs = []
+        for t in range(seq_length):
+            carry, y = self.lstm(carry, x[:, t])
+            outputs.append(y)
 
-        _, lstm_outputs = jax.lax.scan(lstm_step, hidden, x)
-        logits = self.dense(lstm_outputs[0])
-        return logits
+        output = outputs[-1]
+        output = self.h2o(output)
+
+        return output
 
 
-model = LSTMModel(n_input=n_input, n_hidden=n_hidden, n_output=n_output)
-
+input_size = data["max_chars_in_word"] * data["vocab_size"]
+hidden_size = 128
+output_size = data["num_classes"]
 
 # Initialize the model
-@jax.jit
-def init_model(key, batch):
-    return model.init(key, batch)
+model = LSTM(sentence_size=data["max_words_in_sentence"], input_size=input_size, hidden_size=hidden_size,
+             output_size=output_size)
+
+# Create an example input to initialize the model parameters
+ix = jax.random.randint(key, (batch_size,), 0, len(Xtr))
+example_input = Xtr[ix]
+
+# Initialize model parameters
+variables = model.init(key, example_input)
+params = variables['params']
+
+# Define a simple optimizer and training state
+optimizer = optax.adam(learning_rate=lr)
+state = train_state.TrainState.create(
+    apply_fn=model.apply, params=params, tx=optimizer)
+
+# 4. forward and backward passes
 
 
-# Define the loss function
 @jax.jit
 def compute_loss(params, batch, targets):
-    logits = model.apply(params, batch)
-    one_hot_targets = jax.nn.one_hot(targets, num_classes=n_output)
+    logits = model.apply({'params': params}, batch)
+    one_hot_targets = jax.nn.one_hot(targets, num_classes=output_size)
     loss = optax.softmax_cross_entropy(logits, one_hot_targets).mean()
     return loss
 
 
-# Define the training step
 @jax.jit
 def train_step(state, batch, targets):
-    loss_fn = lambda params: compute_loss(params, batch, targets)
+    def loss_fn(params):
+        return compute_loss(params, batch, targets)
     grad_fn = jax.value_and_grad(loss_fn)
     loss, grads = grad_fn(state.params)
     state = state.apply_gradients(grads=grads)
     return state, loss
 
+# 5. training loop
 
-# Initialize the training state
-init_batch = jnp.zeros((1, max_seq_length, n_input))
-params = init_model(key, init_batch)
 
-tx = optax.adamw(learning_rate=lr)
-state = train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
-
-# Training loop
 for epoch in range(epochs + 1):
-    key, subkey = jax.random.split(key)
-    ix = jax.random.randint(subkey, (batch_size,), 0, len(Xtr))
+    key, _ = jax.random.split(key)
+    ix = jax.random.randint(key, (batch_size,), 0, len(Xtr))
     Xb, Yb = Xtr[ix], Ytr[ix]
 
     state, loss = train_step(state, Xb, Yb)
+    lossi.append(loss)
 
     if epoch % 500 == 0:
         print(f"epoch {epoch}: loss={loss:.2f}")
-    lossi.append(loss)
 
-    if epoch == decay_step:
-        state = state.replace(tx=optax.adamw(learning_rate=lr / 10))
+# 6. validation loss
 
 
-# 5. validation dataset loss
 @jax.jit
 def evaluate_model(params, Xval, Yval):
-    logits = model.apply(params, Xval)
+    logits = model.apply({'params': params}, Xval)
     loss = compute_loss(params, Xval, Yval)
     predictions = jnp.argmax(logits, axis=-1)
     accuracy = jnp.mean(predictions == Yval) * 100.0
     return loss, accuracy
 
 
-Xval = jnp.array(Xval)
-Yval = jnp.array(Yval)
 valid_loss, accuracy = evaluate_model(state.params, Xval, Yval)
 print(f"valid_loss={valid_loss:.2f}")  # best loss is 0.27
 print(f"accuracy={accuracy:.2f}%")  # best accuracy is 95.26%
 
-# 6. plot loss
-lossi = jnp.array(lossi)
-lossi = jnp.mean(lossi.reshape(-1, 2), axis=1)
+# 7. plot loss
+
+lossi.pop()
+lossi = jnp.mean(jnp.array(lossi).reshape(200, -1), axis=1)
 plt.figure(figsize=(10, 6))
 plt.style.use(["ggplot", catppuccin.PALETTE.mocha.identifier])
 plt.ylabel("loss")
@@ -154,7 +161,3 @@ plt.xlabel("epoch")
 plt.plot(lossi)
 plt.savefig("test_jax_lstm")
 plt.show()
-
-# Save model parameters
-with open("lstm_params.npz", "wb") as f:
-    f.write(state.params)
