@@ -2,7 +2,7 @@
 
 Language prediction using various deep learning algorithms, implemented in JAX. I built three different word-level models, each with the task of detecting the language of a given sentence.
 
- Alongside this repo, I have also written a [blog article](https://asandei.com) with explanations on how to build these models using the JAX framework.
+ Alongside this repo, I have also written a [blog article](https://asandei.com/posts/lang-detection-jax) with explanations on how to build these models using the JAX framework.
 
 ## Models
 
